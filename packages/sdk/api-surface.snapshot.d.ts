@@ -25,6 +25,16 @@ export interface ClientOptions {
     /** Transaction validity window in seconds. Defaults to 30. */
     timeoutSeconds?: number;
     /**
+     * Maximum number of poll attempts when waiting for transaction confirmation.
+     * Defaults to 30.
+     */
+    pollAttempts?: number;
+    /**
+     * Interval in milliseconds between poll attempts for transaction confirmation.
+     * Defaults to 1000.
+     */
+    pollIntervalMs?: number;
+    /**
      * Allow plain HTTP connections. Only for a local quickstart node.
      *
      * ⚠️ **Security warning**: Enabling this for a remote RPC URL sends
@@ -44,6 +54,18 @@ export interface SentCall<T> {
     result: T;
 }
 /**
+ * The resource footprint from a simulation, useful for showing estimated
+ * network fees before signing.
+ */
+export interface SimulatedResources {
+    /** The simulated resource fee in stroops. */
+    resourceFee: bigint;
+    /** The minimum resource fee required. */
+    minResourceFee: bigint;
+    /** The storage footprint, if present. */
+    footprint?: xdr.LedgerFootprint;
+}
+/**
  * A built, unsent contract call.
  *
  * The stages are deliberately separate — build, simulate, sign, send, confirm
@@ -58,6 +80,8 @@ export declare class PreparedCall<T> {
         built: Transaction;
         parse: (value: unknown) => T;
         networkPassphrase: string;
+        pollAttempts?: number;
+        pollIntervalMs?: number;
     });
     /** The unsigned transaction, as base64 XDR. */
     toXDR(): string;
@@ -68,23 +92,46 @@ export declare class PreparedCall<T> {
      * previewed: a simulation that fails tells you the write would fail, before
      * a signature is requested and before any fee is spent.
      */
-    simulate(): Promise<T>;
+    simulate(options?: {
+        signal?: AbortSignal;
+    }): Promise<T>;
+    /**
+     * Simulates and returns the full resource footprint alongside the decoded
+     * return value. Useful for showing "estimated network fee" in a
+     * confirmation dialog before asking the user to sign.
+     */
+    simulateWithResources(options?: {
+        signal?: AbortSignal;
+    }): Promise<{
+        result: T;
+        resources: SimulatedResources;
+    }>;
     /**
      * Simulates, asks the signer to sign, submits, and waits for the result.
      *
      * The simulation runs first so that a doomed transaction is rejected before
      * the user is prompted.
      */
-    signAndSend(signer: Signer): Promise<SentCall<T>>;
+    signAndSend(signer: Signer, options?: {
+        signal?: AbortSignal;
+    }): Promise<SentCall<T>>;
 }
 /** Shared plumbing for the per-contract clients. */
 export declare abstract class BaseClient {
+    #private;
     protected readonly server: rpc.Server;
     protected readonly contract: Contract;
     protected readonly options: ClientOptions;
+    /** Accounts are cached for 5 seconds to amortise batch prepare calls. */
+    static readonly ACCOUNT_CACHE_TTL_MS = 5000;
     constructor(options: ClientOptions);
     /** The deployed contract address this client talks to. */
     get contractId(): string;
+    /**
+     * Clears the account sequence number cache. Call after a failed transaction
+     * submission to avoid reusing a stale sequence number.
+     */
+    clearAccountCache(): void;
     /** Builds a call without simulating or sending it. */
     protected prepare<T>(method: string, args: xdr.ScVal[], parse: (value: unknown) => T): Promise<PreparedCall<T>>;
     /** Builds a call and simulates it immediately. For read-only methods. */
@@ -175,16 +222,16 @@ export declare class EscrowClient extends BaseClient {
      * Pays the beneficiary. Callable by the depositor or the arbiter — never by
      * the beneficiary, which is the point of the escrow.
      */
-    release(caller: string): Promise<PreparedCall<void>>;
+    release(): Promise<PreparedCall<void>>;
     /**
      * Returns the funds to the depositor.
      *
      * The depositor may only do this once the deadline has passed; the arbiter
      * may do it at any time.
      */
-    refund(caller: string): Promise<PreparedCall<void>>;
+    refund(): Promise<PreparedCall<void>>;
     /** Freezes the escrow pending an arbiter decision. Either party may call. */
-    dispute(caller: string): Promise<PreparedCall<void>>;
+    dispute(): Promise<PreparedCall<void>>;
     /**
      * Splits the funds. Arbiter only.
      *
@@ -241,7 +288,7 @@ export declare class RecurringClient extends BaseClient {
      */
     charge(): Promise<PreparedCall<bigint>>;
     /** Cancels the authorization immediately. Either party may call. */
-    cancel(caller: string): Promise<PreparedCall<void>>;
+    cancel(): Promise<PreparedCall<void>>;
     /**
      * The earliest timestamp at which the next charge may be taken.
      *
@@ -598,6 +645,7 @@ export type { FreighterApi, Signer } from "./signers/index.js";
 export { EscrowState, isTerminalEscrowState, terminalEscrowStates, } from "./types/index.js";
 export type { Authorization, Escrow, EscrowStateName, Grant, Payment, Receipt, Stream, } from "./types/index.js";
 export { STROOPS_DECIMALS, formatAmount, fromStroops, requirePositive, toStroops, } from "./utils/amounts.js";
+export { batchRead, batchReadSafe } from "./utils/batch.js";
 
 // ---- src/signers/index.d.ts ----
 import { SororailError } from "../errors/index.js";
@@ -863,6 +911,41 @@ export declare function formatAmount(amount: bigint, options?: {
 }): string;
 /** Asserts an amount is strictly positive, as every contract requires. */
 export declare function requirePositive(amount: bigint, label?: string): void;
+
+// ---- src/utils/batch.d.ts ----
+import type { BaseClient } from "../clients/base.js";
+/**
+ * #77 — Batch/multi-get helper for reading several positions in fewer round
+ * trips. Each `read()` call is an independent Soroban simulation, so they
+ * can run concurrently rather than sequentially. The SDK previously had no
+ * helper for this, forcing the multi-position UI to issue one full client
+ * construction + `getAccount` + simulate per position, sequentially.
+ *
+ * @example
+ * ```ts
+ * const results = await batchRead([
+ *   { client: streamClient, method: "get_balance" },
+ *   { client: vestingClient, method: "get_vested" },
+ *   { client: escrowClient, method: "get_balance" },
+ * ]);
+ * // results[0] → { status: "fulfilled", value: ... } | { status: "rejected", reason: ... }
+ * ```
+ */
+export declare function batchRead<T>(calls: Array<{
+    client: BaseClient;
+    method: string;
+    args?: unknown[];
+}>): Promise<PromiseSettledResult<T>[]>;
+/**
+ * Like `batchRead` but returns only the successful results, dropping any
+ * that failed. Useful when the caller wants to render what succeeded and
+ * silently skip broken positions.
+ */
+export declare function batchReadSafe<T>(calls: Array<{
+    client: BaseClient;
+    method: string;
+    args?: unknown[];
+}>): Promise<T[]>;
 
 // ---- src/utils/scval.d.ts ----
 import { xdr } from "@stellar/stellar-sdk";

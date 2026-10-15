@@ -255,10 +255,17 @@ export function addPosition(
   kind: PositionKind,
   contractId: string,
   label: string,
+  network: string = RPC_URL,
 ): boolean {
-  const trimmed = contractId.trim();
+  const normalized = contractId.trim().toUpperCase();
   const existing = read();
-  if (existing.some((p) => p.contractId === trimmed)) return false;
+  if (
+    existing.some(
+      (p) => p.contractId.toUpperCase() === normalized && p.network === network,
+    )
+  ) {
+    return false;
+  }
   return write([
     ...existing,
     {
@@ -269,7 +276,6 @@ export function addPosition(
       network,
     },
   ]);
-  return true;
 }
 
 export function removePosition(contractId: string): void {

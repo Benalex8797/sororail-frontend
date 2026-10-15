@@ -1,3 +1,4 @@
+import { ValidationError } from "../errors/index.js";
 import {
   EscrowState,
   type Escrow,
