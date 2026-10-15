@@ -26,8 +26,23 @@ export async function batchRead<T>(
 ): Promise<PromiseSettledResult<T>[]> {
   return Promise.allSettled(
     calls.map(async ({ client, method, args = [] }) => {
-      const prepared = await client.read(method, ...args);
-      return prepared.simulate() as Promise<T>;
+      const target = client as unknown as Record<string, (...params: unknown[]) => unknown>;
+      if (typeof target[method] === "function") {
+        return target[method](...args) as Promise<T>;
+      }
+      if (typeof target["read"] === "function") {
+        const res = await target["read"](method, ...args);
+        if (
+          res &&
+          typeof res === "object" &&
+          "simulate" in res &&
+          typeof (res as { simulate: unknown }).simulate === "function"
+        ) {
+          return (res as { simulate: () => Promise<T> }).simulate();
+        }
+        return res as T;
+      }
+      throw new Error(`Method "${method}" not found on client.`);
     }),
   );
 }

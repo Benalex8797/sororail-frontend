@@ -41,9 +41,10 @@ export function usePositionCard<ClientType extends PositionClient>(
     if (position.network && position.network !== RPC_URL) return;
     const requestId = ++activeRequestIdRef.current;
     const isCurrent = () => requestId === activeRequestIdRef.current;
-    setIsLoading(true);
     try {
-      setData((await client.get()) as Awaited<ReturnType<ClientType["get"]>>);
+      const result = (await client.get()) as DataType;
+      if (!isCurrent()) return;
+      setData(result);
       setLoadError(null);
       if (onRefresh) {
         await onRefresh(client, isCurrent);

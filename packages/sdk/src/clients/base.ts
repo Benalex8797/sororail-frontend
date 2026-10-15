@@ -1,4 +1,5 @@
 import {
+  Account,
   BASE_FEE,
   Contract,
   TransactionBuilder,
@@ -273,7 +274,7 @@ export abstract class BaseClient {
   protected readonly server: rpc.Server;
   protected readonly contract: Contract;
   protected readonly options: ClientOptions;
-  #accountCache: Map<string, { account: rpc.Account; fetchedAt: number }> = new Map();
+  #accountCache: Map<string, { account: Account; fetchedAt: number }> = new Map();
   /** Accounts are cached for 5 seconds to amortise batch prepare calls. */
   static readonly ACCOUNT_CACHE_TTL_MS = 5_000;
 
@@ -298,13 +299,13 @@ export abstract class BaseClient {
     this.#accountCache.clear();
   }
 
-  async #getAccount(publicKey: string): Promise<rpc.Account> {
+  async #getAccount(publicKey: string): Promise<Account> {
     const cached = this.#accountCache.get(publicKey);
     if (cached && Date.now() - cached.fetchedAt < BaseClient.ACCOUNT_CACHE_TTL_MS) {
       return cached.account;
     }
 
-    let account: rpc.Account;
+    let account: Account;
     try {
       account = await this.server.getAccount(publicKey);
     } catch (cause) {
@@ -346,8 +347,8 @@ export abstract class BaseClient {
       built,
       parse,
       networkPassphrase,
-      pollAttempts: this.options.pollAttempts,
-      pollIntervalMs: this.options.pollIntervalMs,
+      ...(this.options.pollAttempts !== undefined ? { pollAttempts: this.options.pollAttempts } : {}),
+      ...(this.options.pollIntervalMs !== undefined ? { pollIntervalMs: this.options.pollIntervalMs } : {}),
     });
   }
 

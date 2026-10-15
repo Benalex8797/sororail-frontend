@@ -23,9 +23,9 @@ export function NetworkGuard({ children }: { children: ReactNode }) {
         const result = (payload as { result?: { passphrase?: unknown } }).result;
         return result?.passphrase;
       })
-      .then((network) => {
+      .then((networkPassphrase) => {
         if (!mounted) return;
-        if (network.passphrase !== NETWORK_PASSPHRASE) {
+        if (networkPassphrase !== NETWORK_PASSPHRASE) {
           console.error("Configured RPC network does not match testnet.");
           setStatus("error");
           return;

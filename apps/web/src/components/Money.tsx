@@ -20,6 +20,8 @@ export interface MoneyProps {
    * prefixed with "≥".
    */
   approximate?: boolean;
+  /** The token's decimals; omit for the classic 7. */
+  decimals?: number | undefined;
 }
 
 /**
@@ -42,6 +44,7 @@ export const Money = memo(function Money({
   size,
   direction,
   approximate = false,
+  decimals,
 }: MoneyProps) {
   const classes = [
     "amount",
