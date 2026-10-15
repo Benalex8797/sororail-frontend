@@ -7,6 +7,7 @@ interface PositionCardStateProps {
   address: string | null;
   loadError: unknown;
   isLoading: boolean;
+  onRetry?: () => void | Promise<void>;
   noun: string;
   children: React.ReactNode;
 }
@@ -16,6 +17,7 @@ export function PositionCardState({
   address,
   loadError,
   isLoading,
+  onRetry,
   noun,
   children,
 }: PositionCardStateProps) {
@@ -32,7 +34,7 @@ export function PositionCardState({
     return (
       <div className="card stack stack--tight">
         <PositionHeader position={position} />
-        <ErrorNotice error={loadError} />
+        <ErrorNotice error={loadError} onRetry={onRetry} />
       </div>
     );
   }

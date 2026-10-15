@@ -265,6 +265,19 @@ h3 {
   word-break: break-all;
 }
 
+.addr--button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.addr__confirmation {
+  font-family: var(--font-body);
+  margin-left: 0.5rem;
+}
+
 /* ---------------------------------------------------------------- text */
 
 .label {

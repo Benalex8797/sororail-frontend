@@ -23,6 +23,9 @@ import { usePositionCard } from "@/hooks/usePositionCard";
 
 export default function StreamsPage() {
   const positions = usePositions("stream");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => setHydrated(true), []);
 
   return (
     <div className="stack">
@@ -34,7 +37,13 @@ export default function StreamsPage() {
         </p>
       </div>
 
-      {positions.length === 0 ? (
+      {!hydrated ? (
+        Array.from({ length: 3 }, (_, index) => (
+          <div className="card" key={`stream-skeleton-${index}`}>
+            <CardSkeleton label="Loading streams" />
+          </div>
+        ))
+      ) : positions.length === 0 ? (
         <div className="card">
           <EmptyState title="No streams tracked yet">
             Initialize a deployed stream contract below, or track one that already exists.
@@ -63,7 +72,7 @@ function StreamCard({ position }: { position: Position }) {
   const [done, setDone] = useState<{ text: string; hash: string } | null>(null);
   const [now, setNow] = useState<bigint>(() => BigInt(Math.floor(Date.now() / 1000)));
 
-  const { data: stream, loadError, client, refresh } = usePositionCard(
+  const { data: stream, loadError, client, refresh, isLoading } = usePositionCard(
     StreamClient,
     position,
     address,
@@ -156,17 +165,12 @@ function StreamCard({ position }: { position: Position }) {
     return (
       <div className="card stack stack--tight">
         <PositionHeader position={position} />
-        <ErrorNotice error={loadError} />
-        <div>
-          <button type="button" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorNotice error={loadError} onRetry={refresh} />
       </div>
     );
   }
 
-  if (!stream) {
+  if (isLoading || !stream) {
     return (
       <div className="card">
         <PositionHeader position={position} />
