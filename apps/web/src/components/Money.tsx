@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { formatAmount } from "@sororail/sdk";
 
 import { shortAddress } from "@/lib/network";
@@ -64,7 +64,7 @@ export const Money = memo(function Money({
           <span className="sr-only">At least </span>
         </>
       ) : null}
-      {formatAmount(value, { locale: BROWSER_LOCALE, ...(decimals === undefined ? {} : { decimals }) })}
+      {formatAmount(value, { locale: BROWSER_LOCALE })}
       <span className="amount__unit">{unit}</span>
     </span>
   );
@@ -73,18 +73,50 @@ export const Money = memo(function Money({
 /** A contract or account address, shortened but copyable in full. */
 export function Address({ value, href }: { value: string; href?: string }) {
   const short = shortAddress(value, 6);
+  const [copied, setCopied] = useState(false);
+
+  async function copyAddress() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  const content = (
+    <>
+      <span aria-hidden="true">{short}</span>
+      <span className="sr-only">{value}</span>
+      {copied ? <span className="addr__confirmation" role="status">Copied</span> : null}
+    </>
+  );
+
   if (href) {
     return (
-      <a className="addr" href={href} target="_blank" rel="noreferrer" title={value}>
-        <span aria-hidden="true">{short}</span>
-        <span className="sr-only">{value}</span>
+      <a
+        className="addr"
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        title={value}
+        aria-label="Copy address and open explorer"
+        onClick={() => void copyAddress()}
+      >
+        {content}
       </a>
     );
   }
   return (
-    <span className="addr" title={value}>
-      <span aria-hidden="true">{short}</span>
-      <span className="sr-only">{value}</span>
-    </span>
+    <button
+      type="button"
+      className="addr addr--button"
+      title={value}
+      aria-label={copied ? "Address copied" : "Copy address"}
+      onClick={() => void copyAddress()}
+    >
+      {content}
+    </button>
   );
 }

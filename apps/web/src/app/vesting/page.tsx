@@ -61,7 +61,7 @@ function GrantCard({ position }: { position: Position }) {
   const [done, setDone] = useState<{ text: string; hash: string } | null>(null);
   const [now, setNow] = useState<bigint>(() => BigInt(Math.floor(Date.now() / 1000)));
 
-  const { data: grant, loadError, client, refresh } = usePositionCard(
+  const { data: grant, loadError, client, refresh, isLoading } = usePositionCard(
     VestingClient,
     position,
     address,
@@ -146,16 +146,11 @@ function GrantCard({ position }: { position: Position }) {
     return (
       <div className="card stack stack--tight">
         <PositionHeader position={position} />
-        <ErrorNotice error={loadError} />
-        <div>
-          <button type="button" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorNotice error={loadError} onRetry={refresh} />
       </div>
     );
   }
-  if (!grant) {
+  if (isLoading || !grant) {
     return (
       <div className="card">
         <PositionHeader position={position} />

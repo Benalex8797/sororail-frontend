@@ -68,7 +68,7 @@ function EscrowCard({ position }: { position: Position }) {
   const [now, setNow] = useState<bigint>(() => BigInt(Math.floor(Date.now() / 1000)));
   const [splitBps, setSplitBps] = useState(5000);
 
-  const { data: escrow, loadError, client, refresh } = usePositionCard(
+  const { data: escrow, loadError, client, refresh, isLoading } = usePositionCard(
     EscrowClient,
     position,
     address,
@@ -137,16 +137,11 @@ function EscrowCard({ position }: { position: Position }) {
     return (
       <div className="card stack stack--tight">
         <PositionHeader position={position} />
-        <ErrorNotice error={loadError} />
-        <div>
-          <button type="button" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorNotice error={loadError} onRetry={refresh} />
       </div>
     );
   }
-  if (!escrow) {
+  if (isLoading || !escrow) {
     return (
       <div className="card">
         <PositionHeader position={position} />

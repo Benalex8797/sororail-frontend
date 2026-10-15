@@ -22,7 +22,13 @@ import { recoveryFor } from "@/lib/recovery";
  * output.
  */
 
-export function ErrorNotice({ error }: { error: unknown }) {
+export function ErrorNotice({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry?: () => void | Promise<void>;
+}) {
   if (!error) return null;
 
   const recovery = recoveryFor(error);
@@ -60,6 +66,13 @@ export function ErrorNotice({ error }: { error: unknown }) {
           <summary>Technical details</summary>
           <div>{details}</div>
         </details>
+      ) : null}
+      {onRetry ? (
+        <div>
+          <button type="button" onClick={() => void onRetry()}>
+            Retry
+          </button>
+        </div>
       ) : null}
     </div>
   );
