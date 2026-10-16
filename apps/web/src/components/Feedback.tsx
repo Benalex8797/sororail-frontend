@@ -112,7 +112,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="empty">
+    <div className="empty" role="status">
       <div className="empty__title">{title}</div>
       <div className="small empty__description">
         {children}
