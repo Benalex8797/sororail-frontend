@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseCsv,
   removeCsvLines,
+  splitCsvLine,
   splitPayrollPayments,
   type ParsedLine,
 } from "../src/lib/payroll";
@@ -122,6 +123,54 @@ ${ANOTHER_ADDR},30`;
   });
 });
 
+describe("splitCsvLine", () => {
+  it("splits simple comma-separated values", () => {
+    expect(splitCsvLine("a,b,c")).toEqual(["a", "b", "c"]);
+  });
+
+  it("handles quoted fields containing commas", () => {
+    expect(splitCsvLine('"a,b",c')).toEqual(["a,b", "c"]);
+    expect(splitCsvLine('a,"b,c",d')).toEqual(["a", "b,c", "d"]);
+  });
+
+  it("handles escaped double quotes within quoted fields", () => {
+    expect(splitCsvLine('"a""b",c')).toEqual(['a"b', "c"]);
+    expect(splitCsvLine('a,"b""c""d",e')).toEqual(["a", 'b"c"d', "e"]);
+  });
+
+  it("trims whitespace around fields", () => {
+    expect(splitCsvLine("  a  ,  b  ,  c  ")).toEqual(["a", "b", "c"]);
+  });
+
+  it("handles quoted fields with surrounding whitespace", () => {
+    expect(splitCsvLine('  "a"  ,  "b"  ')).toEqual(["a", "b"]);
+  });
+
+  it("handles empty fields", () => {
+    expect(splitCsvLine("a,,c")).toEqual(["a", "", "c"]);
+    expect(splitCsvLine(",b,")).toEqual(["", "b", ""]);
+  });
+
+  it("handles quoted empty fields", () => {
+    expect(splitCsvLine('"",b,""')).toEqual(["", "b", ""]);
+  });
+
+  it("handles single quoted field", () => {
+    expect(splitCsvLine('"hello world"')).toEqual(["hello world"]);
+  });
+
+  it("handles complex real-world CSV line with address and amount", () => {
+    const addr = "GBRPYHIL2CI3WHZDTOOQFC6EB4KJJGUJSY3NXMOCLWEZDTWE47XLNZT7";
+    expect(splitCsvLine(`"${addr}","100.50"`)).toEqual([addr, "100.50"]);
+  });
+
+  it("handles comma in quoted field with escaped quotes", () => {
+    expect(splitCsvLine('"value, with, commas ""and"" quotes"')).toEqual([
+      'value, with, commas "and" quotes',
+    ]);
+  });
+});
+
 describe("removeCsvLines", () => {
   it("removes paid rows and preserves comments, blanks, and unpaid rows", () => {
     const csv = [
@@ -134,6 +183,47 @@ describe("removeCsvLines", () => {
     expect(removeCsvLines(csv, [2])).toBe(
       ["# September payroll", "", `${ANOTHER_ADDR},20`].join("\n"),
     );
+  });
+
+  it("removes the first line", () => {
+    const csv = ["line1", "line2", "line3"].join("\n");
+    expect(removeCsvLines(csv, [1])).toBe(["line2", "line3"].join("\n"));
+  });
+
+  it("removes the last line", () => {
+    const csv = ["line1", "line2", "line3"].join("\n");
+    expect(removeCsvLines(csv, [3])).toBe(["line1", "line2"].join("\n"));
+  });
+
+  it("removes the only remaining line", () => {
+    const csv = "line1";
+    expect(removeCsvLines(csv, [1])).toBe("");
+  });
+
+  it("handles out-of-range line numbers gracefully", () => {
+    const csv = ["line1", "line2", "line3"].join("\n");
+    expect(removeCsvLines(csv, [10, 20, 30])).toBe(csv);
+  });
+
+  it("removes multiple lines at once", () => {
+    const csv = ["line1", "line2", "line3", "line4", "line5"].join("\n");
+    expect(removeCsvLines(csv, [2, 4])).toBe(
+      ["line1", "line3", "line5"].join("\n"),
+    );
+  });
+
+  it("preserves empty lines when they are not removed", () => {
+    const csv = ["line1", "", "line3"].join("\n");
+    expect(removeCsvLines(csv, [1])).toBe(["", "line3"].join("\n"));
+  });
+
+  it("handles empty CSV string", () => {
+    expect(removeCsvLines("", [])).toBe("");
+  });
+
+  it("removes all lines when all line numbers are provided", () => {
+    const csv = ["line1", "line2", "line3"].join("\n");
+    expect(removeCsvLines(csv, [1, 2, 3])).toBe("");
   });
 });
 
