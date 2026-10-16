@@ -33,6 +33,9 @@ describe("toStroops", () => {
   it("survives amounts beyond Number.MAX_SAFE_INTEGER", () => {
     const huge = "922337203685.4775807";
     expect(toStroops(huge)).toBe(9_223_372_036_854_775_807n);
+    expect(toStroops(huge) + toStroops("0.0000001")).toBe(
+      9_223_372_036_854_775_808n,
+    );
   });
 
   it("refuses to silently truncate excess precision", () => {

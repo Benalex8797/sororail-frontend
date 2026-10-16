@@ -28,7 +28,9 @@ Node ≥20, pnpm 10.
 **Amounts are `bigint`, never `number`.** `Number` loses integer precision above
 2^53. Converting a balance to `number` anywhere will be asked to change, even
 where it happens to be safe, because the invariant is easier to hold with no
-exceptions.
+exceptions. Reviewers must also flag `Number` arithmetic on any field typed as
+a `bigint` amount; keep amount calculations in `bigint` through display
+conversion at the edges.
 
 **Never surface a raw contract error code.** Decode through `ContractError` so
 the user sees a sentence. If a code has no message, add one to

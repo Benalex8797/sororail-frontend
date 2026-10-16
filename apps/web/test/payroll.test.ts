@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseCsv,
   removeCsvLines,
+  splitPayrollPayments,
   type ParsedLine,
 } from "../src/lib/payroll";
 
@@ -133,5 +134,24 @@ describe("removeCsvLines", () => {
     expect(removeCsvLines(csv, [2])).toBe(
       ["# September payroll", "", `${ANOTHER_ADDR},20`].join("\n"),
     );
+  });
+});
+
+describe("splitPayrollPayments", () => {
+  const payments = [
+    { to: VALID_ADDR, amount: 1n },
+    { to: ANOTHER_ADDR, amount: 2n },
+    { to: VALID_ADDR, amount: 3n },
+  ];
+
+  it("does not create sendable batches until the contract cap is known", () => {
+    expect(splitPayrollPayments(payments, null)).toBeNull();
+  });
+
+  it("splits payments so no batch exceeds the contract cap", () => {
+    expect(splitPayrollPayments(payments, 2)).toEqual([
+      payments.slice(0, 2),
+      payments.slice(2),
+    ]);
   });
 });

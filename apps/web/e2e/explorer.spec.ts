@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { resolveExplorerBase } from "../src/lib/network";
+import {
+  RPC_URL,
+  explorerContract,
+  explorerTx,
+  resolveExplorerBase,
+} from "../src/lib/network";
 
 /** Explorer links follow the configured RPC instead of assuming testnet. */
 test.describe("explorer base", () => {
@@ -31,6 +36,18 @@ test.describe("explorer base", () => {
   test("a blank override falls back to the RPC", () => {
     expect(resolveExplorerBase("https://soroban-testnet.stellar.org", "  ")).toBe(
       "https://stellar.expert/explorer/testnet",
+    );
+  });
+
+  test("transaction and contract links use the configured network base", () => {
+    const base = resolveExplorerBase(
+      RPC_URL,
+      process.env["NEXT_PUBLIC_EXPLORER_URL"],
+    );
+
+    expect(explorerTx("tx-hash")).toBe(base ? `${base}/tx/tx-hash` : null);
+    expect(explorerContract("contract-id")).toBe(
+      base ? `${base}/contract/contract-id` : null,
     );
   });
 });
