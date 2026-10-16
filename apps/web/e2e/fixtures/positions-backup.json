@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "stream",
+    "contractId": "CBEE4SRXRGCJDWXP6DDOSX6FR4S2PJ5KHUQCHI3ABY3SQTCHYSA7CGC7",
+    "label": "Backup stream",
+    "addedAt": 1720000000000,
+    "network": "https://soroban-testnet.stellar.org"
+  },
+  {
+    "kind": "vesting",
+    "contractId": "CADQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQP5KR",
+    "label": "Backup grant",
+    "addedAt": 1720000000001,
+    "network": "https://soroban-testnet.stellar.org"
+  },
+  {
+    "kind": "escrow",
+    "contractId": "CDKJ56S7K7QC4LG6SFF2OGDTG6N4QBCJOVRWHY7MKCWD5JPQ6MDAHRAM",
+    "label": "Backup escrow",
+    "addedAt": 1720000000002,
+    "network": "https://soroban-testnet.stellar.org"
+  }
+]

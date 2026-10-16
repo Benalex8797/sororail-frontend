@@ -5,6 +5,7 @@ import {
   type ErrorCodeName,
 } from "@sororail/sdk";
 import { expect, test } from "@playwright/test";
+import path from "node:path";
 
 import { RECOVERY, recoveryFor } from "../src/lib/recovery";
 
@@ -32,4 +33,36 @@ test.describe("error recovery", () => {
     expect(recoveryFor("boom")).toBeNull();
     expect(recoveryFor(new ContractError(999, "Unknown", "Unknown error"))).toBeNull();
   });
+});
+
+test("imports a positions backup and lists every position", async ({ page }) => {
+  await page.route(/soroban-testnet\.stellar\.org/, async (route) => {
+    const body = route.request().postDataJSON() as { id: number; method: string };
+    if (body.method === "getNetwork") {
+      await route.fulfill({
+        json: {
+          jsonrpc: "2.0",
+          id: body.id,
+          result: { passphrase: "Test SDF Network ; September 2015" },
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(
+    path.join(__dirname, "fixtures", "positions-backup.json"),
+  );
+
+  await expect(page.getByText("Imported 3 positions.")).toBeVisible();
+
+  for (const [route, label] of [
+    ["/streams", "Backup stream"],
+    ["/vesting", "Backup grant"],
+    ["/escrow", "Backup escrow"],
+  ] as const) {
+    await page.goto(route);
+    await expect(page.getByRole("heading", { name: label })).toBeVisible();
+  }
 });

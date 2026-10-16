@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import path from "node:path";
 
 /**
  * End-to-end coverage of the reference app.
@@ -13,6 +14,7 @@ import { expect, test, type Page } from "@playwright/test";
 const STUB_ADDRESS = "GC4RWN3HH5H5GMD3NT4MOIYC3H3Q3NUF4BFWATGDI7NKRVLRURKHSIMC";
 const OTHER_ADDRESS = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";
 const MAINNET_PASSPHRASE = "Public Global Stellar Network ; September 2015";
+const ESCROW_CONTRACT = "CBEE4SRXRGCJDWXP6DDOSX6FR4S2PJ5KHUQCHI3ABY3SQTCHYSA7CGC7";
 
 /**
  * Waits for a connected session.
@@ -62,6 +64,30 @@ async function stubWallet(
     },
   );
 }
+
+test.beforeEach(async ({ page }) => {
+  await page.route(/soroban-testnet\.stellar\.org/, async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+
+    const body = request.postDataJSON() as { id: number; method: string };
+    if (body.method !== "getNetwork") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      json: {
+        jsonrpc: "2.0",
+        id: body.id,
+        result: { passphrase: "Test SDF Network ; September 2015" },
+      },
+    });
+  });
+});
 
 test.describe("shell", () => {
   test("every route renders and keeps the testnet warning visible", async ({
@@ -342,6 +368,92 @@ test.describe("position registry", () => {
     await page.reload();
     await expect(page.getByRole("heading", { name: "Old Network Stream" })).toBeVisible();
     await expect(page.getByText("This position is from a different network.")).toBeVisible();
+  });
+});
+
+test.describe("escrow creation", () => {
+  test("initializes an escrow through mocked wallet and RPC", async ({ page }) => {
+    await stubWallet(page);
+    await page.route(/soroban-testnet\.stellar\.org/, async (route) => {
+      const request = route.request();
+      const body = request.postDataJSON() as {
+        id: number;
+        method: string;
+        params?: { keys?: string[] };
+      };
+      let result: Record<string, unknown>;
+      switch (body.method) {
+        case "getNetwork":
+          result = { passphrase: "Test SDF Network ; September 2015" };
+          break;
+        case "getLedgerEntries":
+          result = {
+            latestLedger: 1,
+            entries: [
+              {
+                key: body.params?.keys?.[0],
+                xdr: "AAAAAAAAAAC5GzdnP0/TMHts+McjAtn3DbaF4EtgTMNH2qjVcaRUeQAAAAAF9eEAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAA",
+                lastModifiedLedgerSeq: 1,
+              },
+            ],
+          };
+          break;
+        case "simulateTransaction":
+          result = {
+            transactionData: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGQ=",
+            minResourceFee: "100",
+            latestLedger: 1,
+            events: [],
+            results: [{ auth: [], xdr: "AAAAAQ==" }],
+          };
+          break;
+        case "sendTransaction":
+          result = {
+            status: "PENDING",
+            hash: "a".repeat(64),
+            latestLedger: 1,
+            latestLedgerCloseTime: 1,
+          };
+          break;
+        case "getTransaction":
+          result = {
+            status: "SUCCESS",
+            latestLedger: 1,
+            latestLedgerCloseTime: 1,
+            oldestLedger: 1,
+            oldestLedgerCloseTime: 1,
+            ledger: 1,
+            createdAt: 1,
+            applicationOrder: 1,
+            feeBump: false,
+            envelopeXdr: "AAAAAgAAAAC5GzdnP0/TMHts+McjAtn3DbaF4EtgTMNH2qjVcaRUeQAAAGQAAAAAAAAAAgAAAAEAAAAAAAAAAAAAAABq0jY5AAAAAAAAAAEAAAAAAAAACgAAAAdmaXh0dXJlAAAAAAEAAAACb2sAAAAAAAAAAAAA",
+            resultXdr: "AAAAAAAAAGQAAAAAAAAAAAAAAAA=",
+            resultMetaXdr: "AAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            events: { contractEventsXdr: [], transactionEventsXdr: [] },
+          };
+          break;
+        default:
+          result = {};
+      }
+      await route.fulfill({ json: { jsonrpc: "2.0", id: body.id, result } });
+    });
+
+    await page.goto("/escrow");
+    await connect(page);
+    const form = page.locator("form").filter({
+      has: page.getByRole("heading", { name: "Create an escrow" }),
+    });
+    await form.getByLabel("Deployed contract address").fill(ESCROW_CONTRACT);
+    await form.getByLabel("Beneficiary address").fill(OTHER_ADDRESS);
+    await form.getByLabel("Amount (stroops)").fill("1000");
+    await form.getByLabel("Seconds until deadline").fill("3600");
+    await form.getByLabel("Name (optional)").fill("E2E escrow");
+    await form.getByRole("button", { name: "Create an escrow" }).click();
+
+    await expect(
+      page.getByText("Position initialized and added to this browser."),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2E escrow" })).toBeVisible();
   });
 });
 

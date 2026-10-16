@@ -527,7 +527,10 @@ export default function PayrollPage() {
             { label: "Total", value: <Money value={total} decimals={decimals ?? undefined} /> },
             { label: "Recipients", value: valid.length },
             { label: "Transactions", value: batches?.length ?? 0 },
-            { label: "Paid from", value: address ? <Address value={address} /> : "—" },
+            {
+              label: "Paid from",
+              value: address ? <span className="addr">{address}</span> : "—",
+            },
           ]}
           irreversible={
             (batches?.length ?? 0) > 1

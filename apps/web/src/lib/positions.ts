@@ -99,6 +99,10 @@ function handleStorageEvent(event: StorageEvent): void {
   emit();
 }
 
+function handlePositionEvent(): void {
+  emit();
+}
+
 /**
  * Subscribe to registry changes. Compatible with `useSyncExternalStore`:
  * the returned function unsubscribes, and same-tab writes plus other-tab
@@ -108,11 +112,15 @@ export function subscribePositions(listener: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const first = storeListeners.size === 0;
   storeListeners.add(listener);
-  if (first) window.addEventListener("storage", handleStorageEvent);
+  if (first) {
+    window.addEventListener("storage", handleStorageEvent);
+    window.addEventListener("sororail:positions", handlePositionEvent);
+  }
   return () => {
     storeListeners.delete(listener);
     if (storeListeners.size === 0) {
       window.removeEventListener("storage", handleStorageEvent);
+      window.removeEventListener("sororail:positions", handlePositionEvent);
     }
   };
 }
