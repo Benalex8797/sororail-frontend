@@ -18,7 +18,7 @@ export function ContractLink({
   const href = explorerContract(id);
   if (!href) return <span className={className}>{children}</span>;
   return (
-    <a className={className} href={href} target="_blank" rel="noreferrer">
+    <a className={className} href={href} target="_blank" rel="noopener noreferrer">
       {children}
     </a>
   );
