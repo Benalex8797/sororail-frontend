@@ -18,7 +18,12 @@ import {
   NETWORK_PASSPHRASE,
   RPC_URL,
 } from "@/lib/network";
-import { parseCsv, removeCsvLines, type ParsedLine } from "@/lib/payroll";
+import {
+  parseCsv,
+  removeCsvLines,
+  splitPayrollPayments,
+  type ParsedLine,
+} from "@/lib/payroll";
 import { fetchTokenDecimals } from "@/lib/token";
 import { useWallet } from "@/lib/wallet";
 
@@ -75,18 +80,33 @@ export default function PayrollPage() {
   // Read the cap rather than hardcoding: it is derived from network resource
   // limits and can differ between deployments.
   useEffect(() => {
-    if (!address) return;
+    if (!address) {
+      setCap(null);
+      setCapError(null);
+      return;
+    }
+    let cancelled = false;
+    setCap(null);
     setCapError(null);
     void client
       .maxRecipients()
       .then((value) => {
+        if (!Number.isInteger(value) || value < 1) {
+          throw new Error("The contract returned an invalid recipient limit.");
+        }
+        if (cancelled) return;
         setCap(value);
         setCapError(null);
       })
       .catch((error) => {
-        setCap(null);
-        setCapError(error);
+        if (!cancelled) {
+          setCap(null);
+          setCapError(error);
+        }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [client, address]);
 
   // Read the token's decimals rather than assuming 7 (the decimals trap).
@@ -163,31 +183,54 @@ export default function PayrollPage() {
   const decimalsKnown = decimals !== null;
 
   const batches = useMemo(
-    () => (cap ? BatchPayoutClient.chunk(payments, cap) : [payments]),
+    () => splitPayrollPayments(payments, cap),
     [payments, cap],
   );
 
   const preview = useCallback(async () => {
+    if (!batches) {
+      setPreviewError(
+        new Error(
+          "Cannot preview payouts until the contract recipient limit is verified.",
+        ),
+      );
+      return;
+    }
+    if (batches.length === 0) return;
     const seq = ++previewSeq.current;
     setPreviewError(null);
     setReceipt(null);
     try {
-      // Preview runs exactly the validation execute does, against the chain.
-      const res = await client.preview(payments);
+      // Preview every chunk exactly as it will be submitted.
+      const receipts: Receipt[] = [];
+      for (const chunk of batches) {
+        receipts.push(await client.preview(chunk));
+      }
       if (seq === previewSeq.current) {
-        setReceipt(res);
+        setReceipt({
+          count: receipts.reduce((count, res) => count + res.count, 0),
+          total: receipts.reduce((sum, res) => sum + res.total, 0n),
+        });
       }
     } catch (error) {
       if (seq === previewSeq.current) {
         setPreviewError(error);
       }
     }
-  }, [client, payments]);
+  }, [batches, client]);
 
   async function send() {
     if (!signer || !address) {
       setSendError(
         new SigningError("Wallet disconnected. Reconnect to continue."),
+      );
+      return;
+    }
+    if (!batches) {
+      setSendError(
+        new Error(
+          "Cannot send payouts until the contract recipient limit is verified.",
+        ),
       );
       return;
     }
@@ -231,8 +274,8 @@ export default function PayrollPage() {
       <div>
         <h1>Payroll</h1>
         <p className="muted page-intro">
-          Pay many recipients in one transaction. All-or-nothing: if any
-          transfer fails, nobody is paid.
+          Pay many recipients in contract-sized batches. Each batch is
+          all-or-nothing: if any transfer fails, nobody in that batch is paid.
         </p>
       </div>
 
@@ -394,8 +437,19 @@ export default function PayrollPage() {
             </div>
             <div className="notice__detail">
               The batch cap could not be determined (network issue, contract not
-              found, or RPC error). The payroll will be sent as one transaction.
-              If it fails, you may need to split it manually.
+              found, or RPC error). Payouts are disabled to prevent submitting a
+              batch the contract may reject. Check the network and reload to try
+              again.
+            </div>
+          </div>
+        ) : null}
+
+        {address && cap === null && !capError ? (
+          <div className="notice notice--info">
+            <div className="notice__title">Checking the contract batch limit</div>
+            <div className="notice__detail">
+              Payouts stay disabled until the maximum recipients per transaction
+              is verified.
             </div>
           </div>
         ) : null}
@@ -403,7 +457,7 @@ export default function PayrollPage() {
         {cap !== null && payments.length > cap ? (
           <div className="notice notice--info">
             <div className="notice__title">
-              This will be sent as {batches.length} transactions
+              This will be sent as {batches?.length ?? 0} transactions
             </div>
             <div className="notice__detail">
               The contract accepts at most {cap} recipients per batch, so the
@@ -426,7 +480,7 @@ export default function PayrollPage() {
             <button
               type="button"
               onClick={() => void preview()}
-              disabled={!address || !decimalsKnown || valid.length === 0 || invalid.length > 0}
+              disabled={!address || !decimalsKnown || !batches || valid.length === 0 || invalid.length > 0}
             >
               Check against chain
             </button>
@@ -434,7 +488,7 @@ export default function PayrollPage() {
               type="button"
               className="button--primary"
               onClick={() => setConfirming(true)}
-              disabled={!signer || !decimalsKnown || valid.length === 0 || invalid.length > 0}
+              disabled={!signer || !decimalsKnown || !batches || valid.length === 0 || invalid.length > 0}
             >
               Pay {valid.length || ""}
             </button>
@@ -444,7 +498,8 @@ export default function PayrollPage() {
         {previewError ? <ErrorNotice error={previewError} /> : null}
         {receipt ? (
           <SuccessNotice>
-            The contract accepts this batch: {receipt.count} recipients,{" "}
+            The contract accepts {receipt.count} recipients across{" "}
+            {batches?.length ?? 0} batch{batches?.length === 1 ? "" : "es"},{" "}
             <Money value={receipt.total} decimals={decimals ?? undefined} /> total. Nothing has been sent.
           </SuccessNotice>
         ) : null}
@@ -471,12 +526,12 @@ export default function PayrollPage() {
           lines={[
             { label: "Total", value: <Money value={total} decimals={decimals ?? undefined} /> },
             { label: "Recipients", value: valid.length },
-            { label: "Transactions", value: batches.length },
+            { label: "Transactions", value: batches?.length ?? 0 },
             { label: "Paid from", value: address ? <Address value={address} /> : "—" },
           ]}
           irreversible={
-            batches.length > 1
-              ? `The payments settle on chain and cannot be reversed. This is sent as ${batches.length} separate transactions — each is all-or-nothing on its own, so an earlier batch stays paid even if a later one fails. Ensure your account balance covers the total amount.`
+            (batches?.length ?? 0) > 1
+              ? `The payments settle on chain and cannot be reversed. This is sent as ${batches?.length} separate transactions — each is all-or-nothing on its own, so an earlier batch stays paid even if a later one fails. Ensure your account balance covers the total amount.`
               : "The payments settle on chain and cannot be reversed. If any single transfer fails, the whole batch is rolled back and nobody is paid. Ensure your account balance covers the total amount."
           }
           confirmLabel={`Pay ${valid.length}`}

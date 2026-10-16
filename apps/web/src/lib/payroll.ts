@@ -1,4 +1,9 @@
-import { ValidationError, toStroops } from "@sororail/sdk";
+import {
+  BatchPayoutClient,
+  ValidationError,
+  toStroops,
+  type Payment,
+} from "@sororail/sdk";
 
 export interface ParsedLine {
   line: number;
@@ -6,6 +11,16 @@ export interface ParsedLine {
   amount: string;
   stroops?: bigint;
   error?: string;
+}
+
+/** Returns `null` until the contract cap is known, so callers cannot send unsplit payments. */
+export function splitPayrollPayments(
+  payments: readonly Payment[],
+  maxRecipients: number | null,
+): Payment[][] | null {
+  return maxRecipients === null
+    ? null
+    : BatchPayoutClient.chunk(payments, maxRecipients);
 }
 
 export function splitCsvLine(line: string): string[] {
