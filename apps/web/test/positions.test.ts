@@ -35,6 +35,26 @@ describe("position persistence", () => {
     expect(addPosition(position.kind, position.contractId, position.label)).toBe(false);
     expect(dispatchEvent).not.toHaveBeenCalled();
   });
+
+  it("notifies same-tab subscribers when the registry changes", () => {
+    const handlers = new Map<string, EventListener>();
+    vi.stubGlobal("window", {
+      addEventListener: (type: string, listener: EventListener) => {
+        handlers.set(type, listener);
+      },
+      removeEventListener: (type: string) => {
+        handlers.delete(type);
+      },
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribePositions(listener);
+
+    handlers.get("sororail:positions")?.(new Event("sororail:positions"));
+
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
+    expect(handlers.size).toBe(0);
+  });
 });
 
 // Helper: builds a minimal window stub that captures storage event handlers

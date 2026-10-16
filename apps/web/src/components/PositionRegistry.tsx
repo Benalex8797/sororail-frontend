@@ -319,6 +319,7 @@ export function PositionBackup() {
           ref={fileInputRef}
           type="file"
           accept="application/json,.json"
+          aria-label="Import positions backup file"
           className="sr-only"
           onChange={(event) => {
             const file = event.target.files?.[0];
