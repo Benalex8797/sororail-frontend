@@ -92,6 +92,18 @@ pnpm --filter @sororail/sdk docs:api
 
 ## Guarding the public API
 
+The unit suite runs without a live RPC endpoint. Escrow and recurring client
+tests mock the RPC boundary while exercising real transaction building and
+ScVal decoding. They cover escrow agreement fields and optional arbiters,
+recurring authorization guards and optional caps, and bigint charge results
+above the JavaScript safe integer limit.
+
+Run just those client tests with:
+
+```bash
+pnpm --filter @sororail/sdk exec vitest run test/escrow.test.ts test/recurring.test.ts
+```
+
 Removing or renaming an export is a breaking change, so it is checked rather
 than trusted:
 

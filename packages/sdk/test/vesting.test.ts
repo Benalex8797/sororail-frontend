@@ -53,7 +53,7 @@ vi.mock("@stellar/stellar-sdk", async (importOriginal) => {
 import { VestingClient } from "../src/clients/vesting.js";
 
 const CONTRACT = "CCONTRACTADDRESSFORTESTINGONLYXXXXXXXXXXXXXXXXXXXXXX";
-const ACCOUNT = "GCKFBEIYTKP5RDBQMUQ5G5NB5Z7F6T5XHKXVZX4MKZVNQPRJVKQKJT3L";
+const ACCOUNT = "GAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQDZ7H";
 
 function client(): VestingClient {
   return new VestingClient({
