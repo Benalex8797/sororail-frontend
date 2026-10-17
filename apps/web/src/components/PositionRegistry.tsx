@@ -162,6 +162,7 @@ export function AddPositionForm({
 
 export function PositionHeader({ position }: { position: Position }) {
   const [editing, setEditing] = useState(false);
+  const displayLabel = position.label?.trim() || position.contractId;
   const [draftLabel, setDraftLabel] = useState(position.label);
   const [pendingRemoval, setPendingRemoval] = useState(false);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -194,7 +195,7 @@ export function PositionHeader({ position }: { position: Position }) {
     return (
       <div className="spread" role="status">
         <p className="small muted m-0">
-          Stopped tracking &ldquo;{position.label}&rdquo;. The contract is untouched.
+          Stopped tracking &ldquo;{displayLabel}&rdquo;. The contract is untouched.
         </p>
         <button type="button" className="button--quiet" onClick={undoRemoval}>
           Undo
@@ -230,7 +231,7 @@ export function PositionHeader({ position }: { position: Position }) {
           </form>
         ) : (
           <h3>
-            {position.label}{" "}
+            {displayLabel}{" "}
             <button
               type="button"
               className="button--quiet"
