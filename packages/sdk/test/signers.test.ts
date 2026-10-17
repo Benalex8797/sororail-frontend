@@ -16,6 +16,7 @@ import {
   SigningError,
   type FreighterApi,
 } from "../src/signers/index.js";
+import { SororailError } from "../src/errors/index.js";
 
 const ALICE = "GC4RWN3HH5H5GMD3NT4MOIYC3H3Q3NUF4BFWATGDI7NKRVLRURKHSIMC";
 const BOB = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI";
@@ -342,5 +343,24 @@ describe("FreighterSigner.connect availability", () => {
     };
 
     await expect(FreighterSigner.connect(api)).resolves.toMatchObject({ publicKey: ALICE });
+  });
+});
+
+// Issue #248: inheritance and fields of the error classes themselves, not
+// just that other code happens to throw them.
+describe("SigningError / NetworkMismatchError", () => {
+  it("SigningError is a SororailError carrying its message", () => {
+    const error = new SigningError("wallet locked");
+    expect(error).toBeInstanceOf(SororailError);
+    expect(error.name).toBe("SigningError");
+    expect(error.message).toBe("wallet locked");
+  });
+
+  it("NetworkMismatchError is a SigningError carrying both passphrases", () => {
+    const error = new NetworkMismatchError(Networks.TESTNET, Networks.PUBLIC);
+    expect(error).toBeInstanceOf(SigningError);
+    expect(error).toBeInstanceOf(SororailError);
+    expect(error.walletNetworkPassphrase).toBe(Networks.TESTNET);
+    expect(error.expectedNetworkPassphrase).toBe(Networks.PUBLIC);
   });
 });
