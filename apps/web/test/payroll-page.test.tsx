@@ -11,6 +11,7 @@ const OTHER_ADDRESS = "GCKFBEIYTKP5RDBQMUQ5G5NB5Z7F6T5XHKXVZX4MKZVNQPRJVKQKJT3L"
 const maxRecipients = vi.fn();
 const preview = vi.fn();
 const execute = vi.fn();
+const fetchTokenDecimals = vi.hoisted(() => vi.fn());
 
 vi.mock("@sororail/sdk", () => {
   class BatchPayoutClient {
@@ -23,7 +24,7 @@ vi.mock("@sororail/sdk", () => {
 });
 
 vi.mock("@/lib/token", () => ({
-  fetchTokenDecimals: vi.fn(async () => 7),
+  fetchTokenDecimals,
 }));
 
 vi.mock("@/lib/wallet", () => ({
@@ -36,6 +37,7 @@ vi.mock("@/lib/wallet", () => ({
 
 beforeEach(() => {
   maxRecipients.mockResolvedValue(500);
+  fetchTokenDecimals.mockResolvedValue(7);
 });
 
 afterEach(() => {
@@ -86,6 +88,17 @@ describe("payroll page CSV upload preview", () => {
     await typeCsv(user, `${ADDRESS},10{enter}${OTHER_ADDRESS},20`);
     expect(await screen.findByText("2 recipients")).toBeInTheDocument();
     expect(totalAmountText()).toContain("30");
+  });
+
+  it("uses the default 7-decimal scale when the token call fails", async () => {
+    fetchTokenDecimals.mockRejectedValueOnce(new Error("RPC unavailable"));
+    const user = userEvent.setup();
+    render(<PayrollPage />);
+
+    await typeCsv(user, `${ADDRESS},10`);
+
+    expect(await screen.findByText("1 recipient")).toBeInTheDocument();
+    expect(totalAmountText()).toContain("10");
   });
 });
 
