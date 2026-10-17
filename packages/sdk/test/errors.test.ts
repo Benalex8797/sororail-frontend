@@ -4,6 +4,7 @@ import {
   ContractError,
   ErrorCode,
   NetworkError,
+  SororailError,
   ValidationError,
   contractForCode,
   decodeError,
@@ -229,5 +230,34 @@ describe("decodeError", () => {
     const error = decodeError("Error(Contract, #101)") as ContractError;
     expect(error.variant).toBe("BatchTooLarge");
     expect(error.message).toMatch(/maxRecipients/);
+  });
+
+  it("produces a SororailError (not a raw TypeError) for truly unknown inputs", () => {
+    expect(decodeError(null)).toBeInstanceOf(SororailError);
+    expect(decodeError(undefined)).toBeInstanceOf(SororailError);
+    expect(decodeError(42)).toBeInstanceOf(SororailError);
+    expect(decodeError({ someField: true })).toBeInstanceOf(SororailError);
+    expect(() => decodeError(Symbol("x"))).not.toThrow(TypeError);
+  });
+});
+
+describe("ValidationError (#239)", () => {
+  it("preserves the message passed to the constructor", () => {
+    const err = new ValidationError("amount must be positive");
+    expect(err.message).toBe("amount must be positive");
+  });
+
+  it("is an instance of SororailError", () => {
+    expect(new ValidationError("x")).toBeInstanceOf(SororailError);
+  });
+
+  it("carries the correct name after transpilation", () => {
+    expect(new ValidationError("x").name).toBe("ValidationError");
+  });
+
+  it("exposes cause when provided", () => {
+    const cause = new RangeError("out of range");
+    const err = new ValidationError("bad value", { cause });
+    expect(err.cause).toBe(cause);
   });
 });
