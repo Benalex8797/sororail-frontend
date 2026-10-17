@@ -95,7 +95,16 @@ export function asRecord(value: unknown, what: string): Record<string, unknown> 
   );
 }
 
-/** Discards a return value, for entry points that return `()`. */
-export function asVoid(): void {
-  return undefined;
+/**
+ * Checks the return value of an entry point that returns `()`. A void result
+ * comes back as `undefined` (no return value) or `null` (`scvVoid`); anything
+ * else means the deployed contract does not match this SDK version.
+ */
+export function asVoid(value?: unknown): void {
+  if (value === undefined || value === null) return undefined;
+  throw new ValidationError(
+    `Expected no return value, got ${JSON.stringify(value, (_key, v: unknown) =>
+      typeof v === "bigint" ? v.toString() : v,
+    )}. The deployed contract may not match this SDK version.`,
+  );
 }
