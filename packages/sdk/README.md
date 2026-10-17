@@ -90,6 +90,27 @@ Generate the browsable reference from the source JSDoc with:
 pnpm --filter @sororail/sdk docs:api
 ```
 
+## Guarding the public API
+
+Removing or renaming an export is a breaking change, so it is checked rather
+than trusted:
+
+```bash
+pnpm --filter @sororail/sdk typecheck          # typechecks src and test
+pnpm --filter @sororail/sdk typecheck:examples # compiles every file in examples/
+pnpm --filter @sororail/sdk test               # incl. the public-export snapshot
+pnpm --filter @sororail/sdk api:check          # declaration surface vs the committed snapshot
+pnpm --filter @sororail/sdk bundle:check       # ESM bundle size, after a build
+```
+
+- `test/public-api.test.ts` snapshots the runtime exports of `src/index.ts`, so
+  a removed or renamed value export fails before it ships.
+- `api:check` compares the generated `.d.ts` surface — including the type-only
+  exports — against `api-surface.snapshot.d.ts`. After an intentional change,
+  refresh it with `pnpm --filter @sororail/sdk api:update` and commit the diff.
+- `bundle:check` measures `dist/index.js` and fails past the budget in
+  `scripts/check-bundle-size.mjs`; `tsup` runs it at the end of every build.
+
 ## Links
 
 - [Monorepo README](../../README.md)

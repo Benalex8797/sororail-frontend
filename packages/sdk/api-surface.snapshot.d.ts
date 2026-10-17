@@ -896,7 +896,9 @@ export declare function toStroops(amount: string, decimals?: number): bigint;
  * Converts the token's smallest unit back to a decimal string.
  *
  * Returns a string rather than a number so that large balances survive the
- * trip: `Number` loses integer precision above 2^53.
+ * trip: `Number` loses integer precision above 2^53. Keep arithmetic on
+ * `bigint`-typed amount fields in `bigint`; `Number` conversion or arithmetic
+ * on those fields should be flagged in review.
  *
  * @example fromStroops(15000000n) === "1.5"
  */

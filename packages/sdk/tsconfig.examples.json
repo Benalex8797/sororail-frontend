@@ -1,0 +1,12 @@
+{
+  // Compiles every runnable example against the current client API. The
+  // examples import straight from src/, so a renamed or removed method turns
+  // into a type error here instead of a runtime failure on the scheduled
+  // integration run weeks later. See `pnpm --filter @sororail/sdk
+  // typecheck:examples`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["examples"]
+}

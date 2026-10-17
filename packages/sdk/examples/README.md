@@ -26,6 +26,13 @@ The scheduled `integration` job in `.github/workflows/ci.yml` does exactly
 this. Only `stream-lifecycle.ts` has been run against live testnet by hand so
 far; the other four have not been recorded as passing until that job has.
 
+Every example is also typechecked on each PR, against `src/` rather than a
+built SDK, so a renamed or removed method fails here before it reaches testnet:
+
+```bash
+pnpm --filter @sororail/sdk typecheck:examples
+```
+
 ## Setup
 
 ```bash
