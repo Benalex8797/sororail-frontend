@@ -121,6 +121,49 @@ ${ANOTHER_ADDR},30`;
     expect(result[0]!.amount).toBe("10");
     expect(result[0]!.stroops).toBe(100_000_000n);
   });
+
+  describe("malformed rows (#268)", () => {
+    const csv = [
+      "# October payroll",
+      `${VALID_ADDR},10`,
+      "invalid,5",
+      "",
+      `${VALID_ADDR},1,extra`,
+      `${VALID_ADDR},0`,
+      `${VALID_ADDR},abc`,
+      `${VALID_ADDR},2.5`,
+    ].join("\n");
+
+    it("reports each malformed row with its source line number", () => {
+      const errors = parseCsv(csv).filter((row) => row.error !== undefined);
+
+      expect(errors).toEqual([
+        { line: 3, to: "invalid", amount: "5", error: "Not a valid account address (G…)" },
+        {
+          line: 5,
+          to: VALID_ADDR,
+          amount: "1",
+          error: "Row has 3 columns; expected 2 (address,amount)",
+        },
+        { line: 6, to: VALID_ADDR, amount: "0", error: "Amount must be greater than zero" },
+        {
+          line: 7,
+          to: VALID_ADDR,
+          amount: "abc",
+          error: expect.stringContaining("not a valid decimal amount"),
+        },
+      ]);
+    });
+
+    it("still parses the valid rows around them", () => {
+      const valid = parseCsv(csv).filter((row) => row.error === undefined);
+
+      expect(valid).toEqual([
+        { line: 2, to: VALID_ADDR, amount: "10", stroops: 100_000_000n },
+        { line: 8, to: VALID_ADDR, amount: "2.5", stroops: 25_000_000n },
+      ]);
+    });
+  });
 });
 
 describe("splitCsvLine", () => {
