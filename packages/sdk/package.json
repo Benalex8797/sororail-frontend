@@ -27,8 +27,10 @@
     "test:coverage": "vitest run --coverage",
     "api:check": "node scripts/api-surface.mjs",
     "api:update": "node scripts/api-surface.mjs --update",
+    "bundle:check": "node scripts/check-bundle-size.mjs",
     "test:integration": "bash examples/run-integration.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:examples": "tsc --noEmit -p tsconfig.examples.json"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.0.1"

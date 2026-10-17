@@ -31,9 +31,16 @@ jobs:
       - run: pnpm build
       # Budget for the client JS the reference app ships.
       - run: pnpm --filter @sororail/web bundle:check
+      # Budget for the SDK's shipped ESM bundle. The tsup build enforces this
+      # already (onSuccess); running it here too keeps the check visible in CI.
+      - run: pnpm --filter @sororail/sdk bundle:check
       # Fails when the SDK's exported types change without the snapshot being
       # updated, so a breaking change is always a visible, deliberate diff.
       - run: pnpm --filter @sororail/sdk api:check
+      # Compiles the runnable examples against the client API so a renamed or
+      # removed method cannot leave them silently rotting until the scheduled
+      # integration run.
+      - run: pnpm --filter @sororail/sdk typecheck:examples
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm audit
