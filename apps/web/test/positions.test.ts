@@ -1,6 +1,7 @@
 import {
   addPosition,
   getPositionCountsSnapshot,
+  looksLikeContractId,
   removePosition,
   restorePosition,
   subscribePositions,
@@ -242,5 +243,25 @@ describe("restorePosition (#271)", () => {
 
     expect(stored()).toEqual([position]);
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("looksLikeContractId (#275)", () => {
+  const VALID_CONTRACT_ID = "CABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUV";
+
+  it("returns true for a valid 56-character C-prefixed strkey", () => {
+    expect(looksLikeContractId(VALID_CONTRACT_ID)).toBe(true);
+  });
+
+  it("returns false for a G-prefixed account address (wrong type)", () => {
+    expect(looksLikeContractId("GABCDE3WZSDLMOI3HPCL7XXTZJRKNHQP4IN5ZXFQ5OCXL3TYBNFZB5V")).toBe(false);
+  });
+
+  it("returns false for a contract-like string that is too short", () => {
+    expect(looksLikeContractId(VALID_CONTRACT_ID.slice(0, 40))).toBe(false);
+  });
+
+  it("returns true when the address has surrounding whitespace (trimmed internally)", () => {
+    expect(looksLikeContractId(`  ${VALID_CONTRACT_ID}  `)).toBe(true);
   });
 });
