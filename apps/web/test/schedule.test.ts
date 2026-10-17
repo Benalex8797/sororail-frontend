@@ -5,7 +5,7 @@ import { renderToString } from "react-dom/server";
 
 (globalThis as unknown as { React: typeof React }).React = React;
 
-import { Schedule } from "../src/components/Schedule";
+import { Schedule, WhenLabel } from "../src/components/Schedule";
 
 describe("Schedule accessibility", () => {
   it("renders progressbar with proper ARIA attributes", () => {
@@ -130,5 +130,76 @@ describe("Schedule date axis (#283)", () => {
     );
     // No role="img" marks present
     expect(html).not.toContain('role="img"');
+  });
+});
+
+// #284 — WhenLabel wording for past, current, and future timestamps
+describe("WhenLabel (#284)", () => {
+  function renderWhen(at: bigint, now: bigint): string {
+    return renderToString(createElement(WhenLabel, { at, now }));
+  }
+
+  it("states the absolute date for a timestamp in the past", () => {
+    const at = 100_000n;
+    const now = 200_000n;
+    const html = renderWhen(at, now);
+
+    const expected = new Date(Number(at) * 1000).toLocaleString();
+    // Past timestamps are shown as the absolute date, not a countdown.
+    expect(html).toContain(expected);
+    expect(html).not.toContain("in ");
+    expect(html).toContain(`title="${expected}"`);
+  });
+
+  it("treats the current timestamp as past rather than counting down to zero", () => {
+    const at = 100_000n;
+    const html = renderWhen(at, at);
+
+    const expected = new Date(Number(at) * 1000).toLocaleString();
+    expect(html).toContain(expected);
+    expect(html).not.toContain("in ");
+  });
+
+  it("states days and hours for a future timestamp days away", () => {
+    const now = 0n;
+    const at = 2n * 86_400n + 3_600n; // 2 days, 1 hour
+    const html = renderWhen(at, now);
+
+    expect(html).toContain("in 2d 1h");
+  });
+
+  it("states hours and minutes for a future timestamp hours away", () => {
+    const now = 0n;
+    const at = 3_600n + 120n; // 1 hour, 2 minutes
+    const html = renderWhen(at, now);
+
+    expect(html).toContain("in 1h 2m");
+  });
+
+  it("states minutes alone when less than an hour remains", () => {
+    const now = 0n;
+    const at = 120n;
+    const html = renderWhen(at, now);
+
+    expect(html).toContain("in 2m");
+  });
+
+  it("states less than a minute when the timestamp is under a minute away", () => {
+    const now = 0n;
+    const at = 30n;
+    const html = renderWhen(at, now);
+
+    expect(html).toContain("in &lt;1m");
+  });
+
+  it("always keeps the absolute date available in the title", () => {
+    const at = 100_000n;
+    const future = renderWhen(at + 3_600n, at);
+    const past = renderWhen(at - 3_600n, at);
+
+    const absolute = new Date(Number(at) * 1000).toLocaleString();
+    const absoluteFuture = new Date(Number(at + 3_600n) * 1000).toLocaleString();
+    expect(future).toContain(`title="${absoluteFuture}"`);
+    expect(past).toContain(`title="${absolute}"`);
   });
 });
